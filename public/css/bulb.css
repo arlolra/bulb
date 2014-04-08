@@ -1,3 +1,32 @@
 body {
 	padding: 4em;
 }
+
+h1 {
+	color: #85559f;
+	border-bottom: 1px solid whitesmoke;
+}
+
+#legend {
+	z-index: 1;
+	position: absolute;
+	background: white;
+	color: black;
+	border-bottom: 1px solid whitesmoke;
+	border-right: 1px solid whitesmoke;
+}
+
+#chart {
+	height: 200px;
+	border-bottom: 1px solid whitesmoke;
+}
+
+#info ul {
+	padding: 0;
+}
+
+#info ul li {
+	margin: 0;
+	list-style-type: none;
+	line-height: 1.8em;
+}

@@ -6,10 +6,11 @@
 	function setupGraph(timeBase) {
 		graph = new Rickshaw.Graph({
 		    element: document.querySelector("#chart"),
-			renderer: "line",
+			renderer: 'area',
+			height: 200,
 		    series: new Rickshaw.Series.FixedDuration([
-					{ color: "red", name: "read" },
-					{ color: "green", name: "written" }
+					{ color: "green", name: "read" },
+					{ color: "#999", name: "written" }
 				], null, {
 					timeInterval: 1000,
 					maxDataPoints: 100,
@@ -17,6 +18,10 @@
 			})
 		});
 		graph.render();
+		var legend = new Rickshaw.Graph.Legend({
+		    graph: graph,
+		    element: document.querySelector("#legend")
+		});
 	}
 
 	function updateGraph(data) {

@@ -1,22 +1,32 @@
 <!doctype html>
-<html>
+<html lang="en">
     <head>
         <meta charset="utf8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Bulb</title>
+        <link href="css/bootstrap.css" rel="stylesheet">
+        <link href="css/rickshaw.css" rel="stylesheet">
         <link href="css/bulb.css" rel="stylesheet">
     </head>
     <body>
-        <h1>Bulb</h1>
-        <div id="info">
-            <script type="text/template" id="info-template">
-                <ul>{[ _.each(data, function (val, key) { ]}
-                    <li>{{ key }}: {{ val }}</li>
-                {[ }); ]}</ul>
-            </script>
+        <div class="container-fluid">
+            <h1>Bulb</h1>
+            <div class="row">
+                <div class="col-md-4">
+                    <div id="info">
+                        <script type="text/template" id="info-template">
+                            <ul>{[ _.each(data, function (val, key) { ]}
+                                <li><strong>{{ key }}</strong>: {{ val }}</li>
+                            {[ }); ]}</ul>
+                        </script>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <div id="legend"></div>
+                    <div id="chart"></div>
+                </div>
+            </div>
         </div>
-        <div id="chart"></div>
-
         <script src="js/d3.js"></script>
         <script src="js/rickshaw.js"></script>
         <script src="js/underscore.js"></script>
