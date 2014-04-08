@@ -1,4 +1,6 @@
+/*global _ */
 ;(function () {
+	"use strict";
 	var graph;
 
 	function setupGraph(timeBase) {
@@ -17,11 +19,7 @@
 		graph.render();
 	}
 
-	var ws = new WebSocket("ws://localhost:9000/ws");
-
-	ws.onmessage = function (e) {
-		var data = JSON.parse(e.data);
-
+	function updateGraph(data) {
 		// use the first timestamp as the base
 		if ( !graph ) {
 			setupGraph(data.arrived_at);
@@ -32,6 +30,34 @@
 			written: data.written 
 		}, data.arrived_at);
 		graph.update();
+	}
+
+	_.templateSettings = {
+		evaluate : /\{\[(.+?)\]\}/g,
+		interpolate : /\{\{(.+?)\}\}/g
+	};
+
+	function renderInfo(data) {
+		var elt = document.getElementById("info"),
+			tmpl = document.getElementById("info-template").text;
+		tmpl = _.template(tmpl);
+		elt.innerHTML = tmpl({ data: data });
+	}
+
+	var ws = new WebSocket("ws://localhost:9000/ws");
+
+	ws.onmessage = function (e) {
+		var msg = JSON.parse(e.data);
+		switch( msg.type ) {
+		case "bw":
+			updateGraph(msg.data);
+			break;
+		case "info":
+			renderInfo(msg.data);
+			break;
+		default:
+			console.log(msg);
+		}
 	};
 
 }());

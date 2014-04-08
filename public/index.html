@@ -8,10 +8,18 @@
     </head>
     <body>
         <h1>Bulb</h1>
+        <div id="info">
+            <script type="text/template" id="info-template">
+                <ul>{[ _.each(data, function (val, key) { ]}
+                    <li>{{ key }}: {{ val }}</li>
+                {[ }); ]}</ul>
+            </script>
+        </div>
         <div id="chart"></div>
 
         <script src="js/d3.js"></script>
         <script src="js/rickshaw.js"></script>
+        <script src="js/underscore.js"></script>
         <script src="js/bulb.js"></script>
     </body>
 </html>
