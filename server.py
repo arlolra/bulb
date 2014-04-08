@@ -11,6 +11,7 @@ from autobahn.twisted.resource import WebSocketResource
 from autobahn.twisted.websocket import WebSocketServerProtocol, \
     WebSocketServerFactory
 
+import stem
 from stem.control import EventType, Controller
 from stem.process import launch_tor_with_config
 
@@ -63,26 +64,32 @@ def main():
 
     reactor.listenTCP(9000, server.Site(root))
 
+    control_port = 9151
     # tor_process = launch_tor_with_config(
-    #     config={"ControlPort": "9151"},
+    #     config={"ControlPort": control_port},
     #     completion_percent=5,
     # )
 
+    try:
+        controller = Controller.from_port(port=control_port)
+    except stem.SocketError as exc:
+        print("Unable to connect to tor on port %d: %s" % (control_port, exc))
+        sys.exit(1)
+
+    controller.authenticate()
+
     print_event = functools.partial(_print_event, factory)
+    controller.add_event_listener(
+        print_event,
+        EventType.BW
+    )
 
-    with Controller.from_port(port=9151) as controller:
-        controller.authenticate()
-        controller.add_event_listener(
-            print_event,
-            EventType.BW
-        )
+    try:
+        reactor.run()
+    except KeyboardInterrupt:
+        pass  # ctrl+c
 
-        try:
-            reactor.run()
-        except KeyboardInterrupt:
-            pass  # ctrl+c
-
-        # tor_process.kill()
+    # tor_process.kill()
 
 
 if __name__ == '__main__':
