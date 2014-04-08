@@ -1,27 +1,40 @@
 /*global _ */
 ;(function () {
 	"use strict";
-	var graph;
 
+	var graph;
 	function setupGraph(timeBase) {
 		graph = new Rickshaw.Graph({
 		    element: document.querySelector("#chart"),
 			renderer: 'area',
 			height: 200,
+			stroke: true,
 		    series: new Rickshaw.Series.FixedDuration([
-					{ color: "green", name: "read" },
-					{ color: "#999", name: "written" }
+					{ color: "plum", name: "read" },
+					{ color: "whitesmoke", name: "written" }
 				], null, {
 					timeInterval: 1000,
 					maxDataPoints: 100,
 					timeBase: timeBase
 			})
 		});
-		graph.render();
 		var legend = new Rickshaw.Graph.Legend({
 		    graph: graph,
 		    element: document.querySelector("#legend")
 		});
+		var yAxis = new Rickshaw.Graph.Axis.Y({
+		    graph: graph,
+			tickFormat: function (y) {
+				return y + " bytes";
+			}
+		});
+		var hoverDetail = new Rickshaw.Graph.HoverDetail({
+			graph: graph,
+			formatter: function(series, x, y) {
+				return y + " bytes";
+			}
+		});
+		graph.render();
 	}
 
 	function updateGraph(data) {
@@ -29,7 +42,6 @@
 		if ( !graph ) {
 			setupGraph(data.arrived_at);
 		}
-
 		graph.series.addData({
 			read: data.read,
 			written: data.written 

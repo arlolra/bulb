@@ -10,7 +10,8 @@ h1 {
 #legend {
 	z-index: 1;
 	position: absolute;
-	background: white;
+	right: 2em;
+	background-color: rgba(255,255,255,0.5);
 	color: black;
 	border-bottom: 1px solid whitesmoke;
 	border-right: 1px solid whitesmoke;
@@ -26,7 +27,8 @@ h1 {
 }
 
 #info ul li {
-	margin: 0;
 	list-style-type: none;
 	line-height: 1.8em;
 }
+
+.rickshaw_graph .detail .x_label { display: none }
