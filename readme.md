@@ -9,9 +9,10 @@ Getting started
 ```
 git clone https://github.com/arlolra/bulb.git
 cd bulb/
+# create a virtualenv
 pip install -r requirements.txt
 python server.py
-open public/index.html
+# open http://localhost:9000
 ```
 
 License
