@@ -4,26 +4,31 @@ import json
 import functools
 
 from twisted.python import log
-from twisted.internet import reactor
+from twisted.internet import reactor, defer
 from twisted.web import static, server
 
 from autobahn.twisted.resource import WebSocketResource
 from autobahn.twisted.websocket import WebSocketServerProtocol, \
     WebSocketServerFactory
 
-import stem
-from stem.control import EventType, Controller
-from stem.process import launch_tor_with_config
+import txtorcon
 
 
 class WSProtocol(WebSocketServerProtocol):
 
+    @defer.inlineCallbacks
     def onOpen(self):
         self.factory.register(self)
-        self.sendMessage(json.dumps({
-            "type": "info",
-            "data": get_info(self.factory.controller)
-        }))
+
+        conn = self.factory.tor_protocol
+        info = yield conn.get_info('version', 'dormant', 'process/pid',
+                                   'process/user', 'address', 'status/version/current',
+                                   'net/listeners/socks')
+        conf = yield conn.get_conf('ExitPolicy', 'Address', 'SocksPort')
+        info.update(conf)
+
+        self.factory.broadcast(json.dumps({'type': 'info',
+                                           'data': info}))
 
     def connectionLost(self, reason):
         WebSocketServerProtocol.connectionLost(self, reason)
@@ -32,10 +37,10 @@ class WSProtocol(WebSocketServerProtocol):
 
 class WSFactory(WebSocketServerFactory):
 
-    def __init__(self, url, controller):
+    def __init__(self, url, control_connection):
         WebSocketServerFactory.__init__(self, url)
         self.clients = []
-        self.controller = controller
+        self.tor_protocol = control_connection
 
     def register(self, client):
         if client not in self.clients:
@@ -48,61 +53,70 @@ class WSFactory(WebSocketServerFactory):
             self.clients.remove(client)
 
     def broadcast(self, msg):
+        msg = str(msg).encode('utf8')
         for c in self.clients:
-            c.sendMessage(msg.encode('utf8'))
+            c.sendMessage(msg)
 
 
-def _print_event(factory, event):
+def bandwidth_event(factory, data):
+    ## could use stem to parse the event payload, but it's just two
+    ## ints.
+
+    r, w = map(int, data.split())
     factory.broadcast(json.dumps({
         "type": "bw",
-        "data": event.__dict__
+        "data": dict(read=r, written=w)
     }))
 
-def get_info(c):
-    return {
-        "version": str(c.get_version()),
-        "exit_policy": c.get_exit_policy().summary(),
-        "user": c.get_user(),
-        "pid": c.get_pid()
-    }
+def an_error(failure):
+    print "Error:", failure.getErrorMessage()
+    reactor.stop()              # scorch the earth!
+
+def setup_complete(connection):
+    print "Connected to Tor (or launched our own)", connection
+
+    factory = WSFactory("ws://localhost:9000", connection)
+    factory.protocol = WSProtocol
+
+    connection.add_event_listener('BW', functools.partial(bandwidth_event, factory))
+
+    root = static.File("public/")
+    resource = WebSocketResource(factory)
+    root.putChild("ws", resource)
+    reactor.listenTCP(9000, server.Site(root))
+
+def progress(*args):
+    '''percent, tag, description'''
+    print '%2f%%: %s: %s' % args
 
 def main(launch_tor=False):
     log.startLogging(sys.stdout)
 
-    control_port = 9151
+    control_port = 9051
     if launch_tor:
-        tor_process = launch_tor_with_config(
-            config={"ControlPort": control_port},
-            completion_percent=5,
-        )
+        control_port = 9151
+        config = txtorcon.TorConfig()
+        config.ControlPort = control_port
+        config.SocksPort = 0
+        d = txtorcon.launch_tor(config, reactor, progress_updates=progress)
 
-    try:
-        controller = Controller.from_port(port=control_port)
-    except stem.SocketError as exc:
-        print("Unable to connect to tor on port %d: %s" % (control_port, exc))
-        sys.exit(1)
+        ## launch_tor returns a TorProcessProtocol
+        ## ...so we grab out the TorControlProtocol instance in order
+        ## to simply use the same callback on "d" below
+        d.addCallback(lambda pp: pp.tor_protocol)
 
-    controller.authenticate()
+    else:
+        ## if build_state=True, then we get a TorState() object back
+        d = txtorcon.build_tor_connection((reactor, '127.0.0.1', control_port),
+                                          build_state=False)
 
-    root = static.File("public/")
+    d.addCallback(setup_complete).addErrback(an_error)
 
-    factory = WSFactory("ws://localhost:9000", controller)
-    factory.protocol = WSProtocol
-
-    resource = WebSocketResource(factory)
-    root.putChild("ws", resource)
-
-    print_event = functools.partial(_print_event, factory)
-    controller.add_event_listener(print_event, EventType.BW)
-
-    reactor.listenTCP(9000, server.Site(root))
     try:
         reactor.run()
+
     except KeyboardInterrupt:
         pass  # ctrl+c
-
-    if launch_tor:
-        tor_process.kill()
 
 
 if __name__ == '__main__':
