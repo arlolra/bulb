@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import sys
 import json
+import getopt
 import functools
 import txtorcon
 
@@ -11,6 +12,16 @@ from twisted.web import static, server
 from autobahn.twisted.resource import WebSocketResource
 from autobahn.twisted.websocket import WebSocketServerProtocol, \
     WebSocketServerFactory
+
+
+DEFAULT_PORT = 9000
+DEFAULT_CONTROL_PORT = 9151
+
+
+class options(object):
+    control_port = DEFAULT_CONTROL_PORT
+    launch_tor = False
+    port = DEFAULT_PORT
 
 
 class WSProtocol(WebSocketServerProtocol):
@@ -78,7 +89,7 @@ def an_error(failure):
 def setup_complete(connection):
     print "Connected to Tor (or launched our own)", connection
 
-    factory = WSFactory("ws://localhost:9000", connection)
+    factory = WSFactory("ws://localhost:%d" % options.port, connection)
     factory.protocol = WSProtocol
 
     connection.add_event_listener('BW',
@@ -87,7 +98,7 @@ def setup_complete(connection):
     root = static.File("public/")
     resource = WebSocketResource(factory)
     root.putChild("ws", resource)
-    reactor.listenTCP(9000, server.Site(root))
+    reactor.listenTCP(options.port, server.Site(root))
 
 
 def progress(*args):
@@ -95,12 +106,57 @@ def progress(*args):
     print '%2f%%: %s: %s' % args
 
 
-def main(control_port=9151, launch_tor=False):
+def usage():
+    print """\
+Bulb is Tor relay monitor that provides a status dashboard site on localhost.
+
+Usage: %(progname)s --port [PORT] --control_port [PORT]
+
+  -c, --control_port    specify a control port (default "%(control_port)s")
+  -h, --help            print this help message
+  -p, --port            specify a port on which to run bulb \
+(default "%(port)s")
+  -t, --launch_tor      have bulb launch a tor
+
+""" % {
+        "progname": sys.argv[0],
+        "control_port": DEFAULT_CONTROL_PORT,
+        "port": DEFAULT_PORT
+    }
+
+
+def main():
+
+    try:
+        opts, args = getopt.gnu_getopt(sys.argv[1:], "c:hp:t", [
+            "control_port=",
+            "help",
+            "port",
+            "launch_tor"
+        ])
+    except getopt.GetoptError as err:
+        print str(err)
+        usage()
+        sys.exit(2)
+
+    for o, a in opts:
+        if o in ("-h", "--help"):
+            usage()
+            sys.exit()
+        elif o in ("-c", "--control_port"):
+            options.control_port = int(a)
+        elif o in ("-t", "--launch_tor"):
+            options.launch_tor = True
+        elif o in ("-p", "--port"):
+            options.port = int(a)
+        else:
+            assert False, "unhandled option"
+
     log.startLogging(sys.stdout)
 
-    if launch_tor:
+    if options.launch_tor:
         config = txtorcon.TorConfig()
-        config.ControlPort = control_port
+        config.ControlPort = options.control_port
         config.SocksPort = 0
         d = txtorcon.launch_tor(config, reactor, progress_updates=progress)
 
@@ -111,7 +167,8 @@ def main(control_port=9151, launch_tor=False):
 
     else:
         # if build_state=True, then we get a TorState() object back
-        d = txtorcon.build_tor_connection((reactor, '127.0.0.1', control_port),
+        d = txtorcon.build_tor_connection((reactor, '127.0.0.1',
+                                          options.control_port),
                                           build_state=False)
 
     d.addCallback(setup_complete).addErrback(an_error)

@@ -60,7 +60,7 @@
 		elt.innerHTML = tmpl({ data: data });
 	}
 
-	var ws = new WebSocket("ws://localhost:9000/ws");
+	var ws = new WebSocket("ws://" + window.location.host + "/ws");
 
 	ws.onmessage = function (e) {
 		var msg = JSON.parse(e.data);
