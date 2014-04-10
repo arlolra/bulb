@@ -2,6 +2,7 @@
 import sys
 import json
 import functools
+import txtorcon
 
 from twisted.python import log
 from twisted.internet import reactor, defer
@@ -11,24 +12,15 @@ from autobahn.twisted.resource import WebSocketResource
 from autobahn.twisted.websocket import WebSocketServerProtocol, \
     WebSocketServerFactory
 
-import txtorcon
-
 
 class WSProtocol(WebSocketServerProtocol):
 
     @defer.inlineCallbacks
     def onOpen(self):
         self.factory.register(self)
-
-        conn = self.factory.tor_protocol
-        info = yield conn.get_info('version', 'dormant', 'process/pid',
-                                   'process/user', 'address', 'status/version/current',
-                                   'net/listeners/socks')
-        conf = yield conn.get_conf('ExitPolicy', 'Address', 'SocksPort')
-        info.update(conf)
-
-        self.factory.broadcast(json.dumps({'type': 'info',
-                                           'data': info}))
+        info = yield get_info(self.factory.tor_protocol)
+        self.sendMessage(json.dumps({'type': 'info',
+                                     'data': info}))
 
     def connectionLost(self, reason):
         WebSocketServerProtocol.connectionLost(self, reason)
@@ -44,12 +36,12 @@ class WSFactory(WebSocketServerFactory):
 
     def register(self, client):
         if client not in self.clients:
-            print("Registering client {}".format(client.peer))
+            print "Registering client {}".format(client.peer)
             self.clients.append(client)
 
     def unregister(self, client):
         if client in self.clients:
-            print("Unregistering client {}".format(client.peer))
+            print "Unregistering client {}".format(client.peer)
             self.clients.remove(client)
 
     def broadcast(self, msg):
@@ -58,19 +50,30 @@ class WSFactory(WebSocketServerFactory):
             c.sendMessage(msg)
 
 
-def bandwidth_event(factory, data):
-    ## could use stem to parse the event payload, but it's just two
-    ## ints.
+@defer.inlineCallbacks
+def get_info(conn):
+    info = conn.get_info('version', 'dormant', 'process/pid', 'process/user',
+                         'address', 'status/version/current',
+                         'net/listeners/socks')
+    conf = conn.get_conf('ExitPolicy', 'Address', 'SocksPort')
+    info = yield info
+    conf = yield conf
+    info.update(conf)
+    defer.returnValue(info)
 
+
+def bandwidth_event(factory, data):
     r, w = map(int, data.split())
     factory.broadcast(json.dumps({
         "type": "bw",
         "data": dict(read=r, written=w)
     }))
 
+
 def an_error(failure):
     print "Error:", failure.getErrorMessage()
-    reactor.stop()              # scorch the earth!
+    reactor.stop()
+
 
 def setup_complete(connection):
     print "Connected to Tor (or launched our own)", connection
@@ -78,35 +81,36 @@ def setup_complete(connection):
     factory = WSFactory("ws://localhost:9000", connection)
     factory.protocol = WSProtocol
 
-    connection.add_event_listener('BW', functools.partial(bandwidth_event, factory))
+    connection.add_event_listener('BW',
+                                  functools.partial(bandwidth_event, factory))
 
     root = static.File("public/")
     resource = WebSocketResource(factory)
     root.putChild("ws", resource)
     reactor.listenTCP(9000, server.Site(root))
 
+
 def progress(*args):
     '''percent, tag, description'''
     print '%2f%%: %s: %s' % args
 
-def main(launch_tor=False):
+
+def main(control_port=9151, launch_tor=False):
     log.startLogging(sys.stdout)
 
-    control_port = 9051
     if launch_tor:
-        control_port = 9151
         config = txtorcon.TorConfig()
         config.ControlPort = control_port
         config.SocksPort = 0
         d = txtorcon.launch_tor(config, reactor, progress_updates=progress)
 
-        ## launch_tor returns a TorProcessProtocol
-        ## ...so we grab out the TorControlProtocol instance in order
-        ## to simply use the same callback on "d" below
+        # launch_tor returns a TorProcessProtocol
+        # ...so we grab out the TorControlProtocol instance in order
+        # to simply use the same callback on "d" below
         d.addCallback(lambda pp: pp.tor_protocol)
 
     else:
-        ## if build_state=True, then we get a TorState() object back
+        # if build_state=True, then we get a TorState() object back
         d = txtorcon.build_tor_connection((reactor, '127.0.0.1', control_port),
                                           build_state=False)
 
