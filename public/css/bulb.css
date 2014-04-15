@@ -1,5 +1,5 @@
 body {
-	padding: 4em;
+	padding: 2em 4em;
 }
 
 h1 {
@@ -32,3 +32,7 @@ h1 {
 }
 
 .rickshaw_graph .detail .x_label { display: none }
+
+#logs {
+	margin: 2em 0;
+}

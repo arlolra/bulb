@@ -55,9 +55,24 @@
 
 	function renderInfo(data) {
 		var elt = document.getElementById("info"),
-			tmpl = document.getElementById("info-template").text;
-		tmpl = _.template(tmpl);
+			tmpl = _.template(document.getElementById("info-template").text);
 		elt.innerHTML = tmpl({ data: data });
+	}
+
+	var max_logs = 10,
+		log = document.getElementById("logs"),
+		log_tmpl = _.template(document.getElementById("log-template").text);
+	function renderLog(data) {
+		var li = document.createElement("li");
+		li.innerHTML = log_tmpl({
+			level: data.level.toLowerCase(),
+			text: data.text
+		});
+		log.insertBefore(li, log.firstChild);
+		log.childNodes.length = max_logs;
+		while ( log.childNodes.length > max_logs ) {
+			log.removeChild(log.childNodes[max_logs + 1]);
+		}
 	}
 
 	var ws = new WebSocket("ws://" + window.location.host + "/ws");
@@ -70,6 +85,9 @@
 			break;
 		case "info":
 			renderInfo(msg.data);
+			break;
+		case "log":
+			renderLog(msg.data);
 			break;
 		default:
 			console.log(msg);

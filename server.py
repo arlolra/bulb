@@ -81,6 +81,16 @@ def bandwidth_event(factory, data):
     }))
 
 
+def log_event(factory, level, data):
+    factory.broadcast(json.dumps({
+        "type": "log",
+        "data": {
+            "level": level,
+            "text": data
+        }
+    }))
+
+
 def an_error(failure):
     print "Error:", failure.getErrorMessage()
     reactor.stop()
@@ -94,6 +104,11 @@ def setup_complete(connection):
 
     connection.add_event_listener('BW',
                                   functools.partial(bandwidth_event, factory))
+
+    for event in ['INFO', 'NOTICE', 'WARN', 'ERR']:
+        connection.add_event_listener(event,
+                                      functools.partial(log_event, factory,
+                                                        event))
 
     root = static.File("public/")
     resource = WebSocketResource(factory)
