@@ -3,7 +3,7 @@ Bulb
 
 The makings of a tor relay web status dashboard.
 
-![Screenshot](http://cl.ly/image/2o2p1j1m1M1f/download/Screen%20Shot%202014-04-08%20at%202.49.00%20PM.png)
+![Screenshot](https://s3.amazonaws.com/f.cl.ly/items/0U2p293C0D2j3Y040e1C/Screen%20Shot%202014-04-14%20at%2010.27.44%20PM.png)
 
 Getting started
 ---------------
